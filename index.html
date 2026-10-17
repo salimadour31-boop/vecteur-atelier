@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vecteur Atelier — vectoriser une image (bitmap → SVG) dans le navigateur</title>
+  <meta name="description" content="Vectoriseur gratuit et libre : transformez un PNG, JPG ou WebP en SVG (noir et blanc, couleurs, niveaux de gris, ligne centrale), courbes de Bézier, SVG en calques pour Illustrator. Tout reste sur votre appareil.">
+  <meta name="theme-color" content="#101217">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip" href="#viewer" data-i18n="skip"></a>
+  <!-- ===================================================== header -->
+  <header class="top">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="" width="40" height="40">
+      <div>
+        <h1>Vecteur Atelier <span class="tf" lang="kab-Tfng" aria-hidden="true">ⴰⵠⵉⴽⵟⵓⵔ</span></h1>
+        <p data-i18n="tagline"></p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <label class="sr" for="lang" data-i18n="language"></label>
+      <select id="lang" aria-label="Langue / Language / Tutlayt">
+        <option value="fr">Français</option><option value="en">English</option><option value="kab">Taqbaylit</option>
+      </select>
+      <label class="check" id="tfngWrap" hidden><input type="checkbox" id="tfng"> <span data-i18n="tifinagh"></span> ⵣ</label>
+      <button class="btn icon" id="themeBtn" type="button" data-i18n-attr="aria-label:uiTheme;title:uiTheme">◐</button>
+      <button class="btn icon" id="helpBtn" type="button" data-i18n-attr="aria-label:help;title:help">?</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ===================================================== preview -->
+    <section class="work" aria-labelledby="viewTitle">
+      <h2 id="viewTitle" class="sr" data-i18n="preview"></h2>
+      <div class="toolbar">
+        <div class="seg" role="radiogroup" data-i18n-attr="aria-label:viewMode" id="viewSeg">
+          <label><input type="radio" name="view" value="split" checked><span data-i18n="vSplit"></span></label>
+          <label><input type="radio" name="view" value="side"><span data-i18n="vSide"></span></label>
+          <label><input type="radio" name="view" value="vector"><span data-i18n="vVector"></span></label>
+          <label><input type="radio" name="view" value="original"><span data-i18n="vOriginal"></span></label>
+        </div>
+        <label class="check"><input type="checkbox" id="cmpQuant"> <span data-i18n="cmpQuant"></span></label>
+        <label class="check"><input type="checkbox" id="showOutline"> <span data-i18n="outlines"></span></label>
+        <label class="check"><input type="checkbox" id="showNodes"> <span data-i18n="nodes"></span></label>
+        <div class="zoom">
+          <button class="btn icon" id="zoomOut" type="button" data-i18n-attr="aria-label:zoomOut;title:zoomOut">−</button>
+          <output id="zoomVal" aria-live="off">100 %</output>
+          <button class="btn icon" id="zoomIn" type="button" data-i18n-attr="aria-label:zoomIn;title:zoomIn">+</button>
+          <button class="btn" id="zoomFit" type="button" data-i18n="fit"></button>
+          <button class="btn" id="zoom100" type="button">1:1</button>
+        </div>
+      </div>
+
+      <div class="viewer" id="viewer" tabindex="0" data-view="split" data-i18n-attr="aria-label:viewerLabel" role="region">
+        <div class="pane" id="paneOrig">
+          <div class="stage"><canvas id="cOrigA"></canvas><canvas id="cQuantA" hidden></canvas></div>
+          <span class="tag" data-i18n="tagOriginal"></span>
+        </div>
+        <div class="pane" id="paneVec">
+          <div class="layer" id="layVec"><div class="stage"><div id="svgHost" class="svg-host"></div><svg id="overlay" class="overlay" aria-hidden="true"><path id="ovOutline"/><path id="ovNodes"/></svg></div></div>
+          <div class="layer clip" id="layOrig"><div class="stage"><canvas id="cOrigB"></canvas><canvas id="cQuantB" hidden></canvas></div></div>
+          <div class="split" id="split" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" data-i18n-attr="aria-label:splitLabel"><span></span></div>
+          <span class="tag" data-i18n="tagVector"></span>
+        </div>
+        <div class="drop-hint" id="dropHint" hidden><span data-i18n="dropHere"></span></div>
+        <div class="progress" id="progress" hidden>
+          <div class="bar"><div id="progBar"></div></div>
+          <span id="progText"></span>
+          <button class="btn small" id="cancelBtn" type="button" data-i18n="cancel"></button>
+        </div>
+      </div>
+
+      <div class="stats" id="stats" aria-live="polite">
+        <span><b id="stPaths">–</b> <span data-i18n="stPaths"></span></span>
+        <span><b id="stNodes">–</b> <span data-i18n="stNodes"></span></span>
+        <span><b id="stColors">–</b> <span data-i18n="stColors"></span></span>
+        <span><b id="stSize">–</b> <span data-i18n="stSize"></span></span>
+        <span><b id="stTime">–</b> <span data-i18n="stTime"></span></span>
+        <span class="mute" id="stDims"></span>
+      </div>
+      <p class="sr" id="live" aria-live="polite"></p>
+    </section>
+
+    <!-- ===================================================== controls -->
+    <aside class="panel" aria-label="Réglages" data-i18n-attr="aria-label:settings">
+      <details open>
+        <summary data-i18n="secSource"></summary>
+        <div class="row">
+          <button class="btn primary" id="openBtn" type="button"><span aria-hidden="true">⤒</span> <span data-i18n="openImage"></span></button>
+          <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/*" hidden>
+          <button class="btn" id="demoLogo" type="button" data-i18n="demoLogo"></button>
+          <button class="btn" id="demoSketch" type="button" data-i18n="demoSketch"></button>
+        </div>
+        <p class="hint" data-i18n="dropHint"></p>
+        <p class="hint" id="srcInfo"></p>
+      </details>
+
+      <details open>
+        <summary data-i18n="secPresets"></summary>
+        <div class="presets" id="presets">
+          <button class="btn" type="button" data-preset="logo" data-i18n="pLogo"></button>
+          <button class="btn" type="button" data-preset="lineart" data-i18n="pLineart"></button>
+          <button class="btn" type="button" data-preset="illustration" data-i18n="pIllustration"></button>
+          <button class="btn" type="button" data-preset="poster" data-i18n="pPoster"></button>
+          <button class="btn" type="button" data-preset="pixel" data-i18n="pPixel"></button>
+          <button class="btn" type="button" data-preset="sketch" data-i18n="pSketch"></button>
+        </div>
+      </details>
+
+      <details open>
+        <summary data-i18n="secMode"></summary>
+        <div class="seg wide" role="radiogroup" data-i18n-attr="aria-label:secMode">
+          <label><input type="radio" name="mode" value="bw" data-set="mode"><span data-i18n="mBw"></span></label>
+          <label><input type="radio" name="mode" value="color" data-set="mode"><span data-i18n="mColor"></span></label>
+          <label><input type="radio" name="mode" value="grey" data-set="mode"><span data-i18n="mGrey"></span></label>
+        </div>
+        <div data-show="bw">
+          <label class="check"><input type="checkbox" data-set="otsu"> <span data-i18n="otsu"></span> <output id="otsuVal" class="mute"></output></label>
+          <div class="field"><label for="s-threshold" data-i18n="threshold"></label><input type="range" id="s-threshold" data-set="threshold" min="1" max="254" step="1"><output for="s-threshold"></output></div>
+        </div>
+        <div data-show="color">
+          <div class="field"><label for="s-colors" data-i18n="colors"></label><input type="range" id="s-colors" data-set="colors" min="2" max="32" step="1"><output for="s-colors"></output></div>
+          <div class="field"><label for="s-quant" data-i18n="quant"></label><select id="s-quant" data-set="quant"><option value="kmeans" data-i18n="kmeans"></option><option value="median" data-i18n="median"></option></select></div>
+          <div class="field"><label for="s-merge" data-i18n="merge"></label><input type="range" id="s-merge" data-set="merge" min="0" max="40" step="1"><output for="s-merge"></output></div>
+        </div>
+        <div data-show="grey">
+          <div class="field"><label for="s-levels" data-i18n="levels"></label><input type="range" id="s-levels" data-set="levels" min="2" max="16" step="1"><output for="s-levels"></output></div>
+        </div>
+        <label class="check" data-show="color grey"><input type="checkbox" data-set="antialias"> <span data-i18n="antialias"></span></label>
+        <label class="check" data-show="bw grey"><input type="checkbox" data-set="invert"> <span data-i18n="invert"></span></label>
+        <label class="check"><input type="checkbox" data-set="removeBg"> <span data-i18n="removeBg"></span></label>
+      </details>
+
+      <details open>
+        <summary data-i18n="secPre"></summary>
+        <div class="field"><label for="s-maxSize" data-i18n="maxSize"></label><input type="range" id="s-maxSize" data-set="maxSize" min="64" max="4000" step="16"><output for="s-maxSize"></output></div>
+        <div class="field"><label for="s-contrast" data-i18n="contrast"></label><input type="range" id="s-contrast" data-set="contrast" min="-50" max="100" step="1"><output for="s-contrast"></output></div>
+        <div class="field"><label for="s-blur" data-i18n="blur"></label><input type="range" id="s-blur" data-set="blur" min="0" max="6" step="1"><output for="s-blur"></output></div>
+        <label class="check"><input type="checkbox" data-set="denoise"> <span data-i18n="denoise"></span></label>
+        <div class="field"><label for="s-speckle" data-i18n="speckle"></label><input type="range" id="s-speckle" data-set="speckle" min="0" max="400" step="1"><output for="s-speckle"></output></div>
+      </details>
+
+      <details open>
+        <summary data-i18n="secTrace"></summary>
+        <div class="field"><label for="s-trace" data-i18n="traceType"></label><select id="s-trace" data-set="trace"><option value="curves" data-i18n="tCurves"></option><option value="polygons" data-i18n="tPolygons"></option><option value="pixels" data-i18n="tPixels"></option><option value="center" data-i18n="tCenter"></option></select></div>
+        <div class="field" data-trace="curves polygons center"><label for="s-corner" data-i18n="corner"></label><input type="range" id="s-corner" data-set="corner" min="0" max="180" step="1"><output for="s-corner"></output></div>
+        <div class="field" data-trace="curves center"><label for="s-tol" data-i18n="tol"></label><input type="range" id="s-tol" data-set="tol" min="0.1" max="8" step="0.1"><output for="s-tol"></output></div>
+        <div class="field" data-trace="curves polygons center"><label for="s-simp" data-i18n="simp"></label><input type="range" id="s-simp" data-set="simp" min="0.1" max="8" step="0.1"><output for="s-simp"></output></div>
+        <div class="field" data-trace="curves polygons pixels"><label for="s-layering" data-i18n="layering"></label><select id="s-layering" data-set="layering"><option value="stack" data-i18n="lStack"></option><option value="cut" data-i18n="lCut"></option></select></div>
+        <div class="field" data-trace="curves polygons pixels"><label for="s-style" data-i18n="style"></label><select id="s-style" data-set="style"><option value="fill" data-i18n="sFill"></option><option value="stroke" data-i18n="sStroke"></option></select></div>
+        <div class="field" data-stroke="1"><label for="s-strokeWidth" data-i18n="strokeWidth"></label><input type="range" id="s-strokeWidth" data-set="strokeWidth" min="0" max="40" step="0.5"><output for="s-strokeWidth"></output></div>
+        <div class="field"><label for="s-dec" data-i18n="dec"></label><input type="range" id="s-dec" data-set="dec" min="0" max="3" step="1"><output for="s-dec"></output></div>
+      </details>
+
+      <details open>
+        <summary data-i18n="secPalette"></summary>
+        <p class="hint" data-i18n="paletteHint"></p>
+        <ul class="palette" id="palette"></ul>
+        <label class="check"><input type="checkbox" data-set="lock" id="lockPal"> <span data-i18n="lock"></span></label>
+        <div class="row">
+          <button class="btn small" id="palReset" type="button" data-i18n="palReset"></button>
+          <button class="btn small" id="palJson" type="button">JSON</button>
+          <button class="btn small" id="palGpl" type="button">.gpl</button>
+        </div>
+      </details>
+
+      <details open>
+        <summary data-i18n="secExport"></summary>
+        <div class="row">
+          <button class="btn primary" id="exLayered" type="button" data-i18n="svgLayered"></button>
+          <button class="btn" id="exOpt" type="button" data-i18n="svgOpt"></button>
+          <button class="btn" id="exCopy" type="button" data-i18n="copySvg"></button>
+        </div>
+        <div class="row">
+          <label for="pngScale" data-i18n="pngScale"></label>
+          <select id="pngScale"><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option><option value="8">8×</option></select>
+          <button class="btn" id="exPng" type="button" data-i18n="png"></button>
+        </div>
+        <div class="row">
+          <button class="btn small" id="exSettings" type="button" data-i18n="settingsJson"></button>
+          <button class="btn small" id="imSettings" type="button" data-i18n="importJson"></button>
+          <input type="file" id="settingsFile" accept="application/json,.json" hidden>
+          <button class="btn small" id="copyLink" type="button" data-i18n="copyLink"></button>
+          <button class="btn small" id="resetAll" type="button" data-i18n="resetAll"></button>
+        </div>
+        <p class="hint" data-i18n="exportHint"></p>
+      </details>
+    </aside>
+  </main>
+
+  <footer class="foot">
+    <p><span data-i18n="privacy"></span> · <a href="https://github.com/salimadour31-boop/vecteur-atelier" data-i18n="source"></a> · MIT</p>
+  </footer>
+
+  <dialog id="helpDlg" aria-labelledby="helpTitle">
+    <h2 id="helpTitle" data-i18n="help"></h2>
+    <div id="helpBody"></div>
+    <form method="dialog"><button class="btn primary" data-i18n="close"></button></form>
+  </dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/trace.js"></script>
+  <script src="js/demo.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
